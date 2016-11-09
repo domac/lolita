@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/BurntSushi/toml"
 	app "github.com/domac/lolita/lolid"
 	"github.com/domac/lolita/version"
 	"github.com/judwhite/go-svc/svc"
+	"github.com/mreiferson/go-options"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,8 +16,10 @@ import (
 
 var (
 	flagSet     = flag.NewFlagSet("lolita", flag.ExitOnError)
-	port        = flagSet.String("port", "", "the port which server run") //端口
-	showVersion = flagSet.Bool("version", false, "print version string")  //版本
+	showVersion = flagSet.Bool("version", false, "print version string") //版本
+	config      = flagSet.String("config", "", "path to config file")
+	verbose     = flagSet.Bool("verbose", false, "enable verbose logging")                                      //配置文件
+	httpAddress = flagSet.String("http-address", "0.0.0.0:6060", "<addr>:<port> to listen on for HTTP clients") //http定义地址
 )
 
 //程序封装
@@ -39,6 +43,21 @@ func (p *program) Start() error {
 		fmt.Println(version.String("lolita"))
 		os.Exit(0)
 	}
+
+	var cfg map[string]interface{}
+	if *config != "" {
+		_, err := toml.DecodeFile(*config, &cfg)
+		if err != nil {
+			log.Fatalf("ERROR: failed to load config file %s - %s", *config, err.Error())
+		}
+	}
+
+	opts := app.NewOptions()
+	options.Resolve(opts, flagSet, cfg)
+
+	daemon := app.New(opts)
+	daemon.Main()
+	p.lolid = daemon
 	return nil
 }
 

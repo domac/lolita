@@ -1,3 +1,5 @@
 # lolita
----------
-server proxy framework
+
+A tiny server proxy framework
+
+开发中...
