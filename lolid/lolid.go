@@ -50,5 +50,8 @@ func (l *Lolid) Main() {
 
 //后台程序退出
 func (l *Lolid) Exit() {
+	if l.httpListener != nil {
+		l.httpListener.Close()
+	}
 	l.waitGroup.Wait()
 }
