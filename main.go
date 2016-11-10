@@ -19,8 +19,9 @@ var (
 	flagSet     = flag.NewFlagSet("lolita", flag.ExitOnError)
 	showVersion = flagSet.Bool("version", false, "print version string") //版本
 	config      = flagSet.String("config", "", "path to config file")
-	verbose     = flagSet.Bool("verbose", false, "enable verbose logging")                                      //配置文件
-	httpAddress = flagSet.String("http-address", "0.0.0.0:6060", "<addr>:<port> to listen on for HTTP clients") //http定义地址
+	verbose     = flagSet.Bool("verbose", false, "enable verbose logging")                                       //配置文件
+	httpAddress = flagSet.String("http-address", "0.0.0.0:13360", "<addr>:<port> to listen on for HTTP clients") //http定义地址
+	tcpAddress  = flagSet.String("tcp-address", "0.0.0.0:13361", "<addr>:<port> to listen on for HTTP clients")  //tcp定义地址
 	openTasks   = flagSet.Bool("open-tasks", false, "if opened, lolid will execute tasks soon")
 )
 

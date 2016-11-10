@@ -13,6 +13,7 @@ import (
 type Lolid struct {
 	sync.RWMutex
 	opts         *Options
+	tcpListener  net.Listener
 	httpListener net.Listener
 	exitChan     chan int
 	waitGroup    util.WaitGroupWrapper
