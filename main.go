@@ -3,15 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"syscall"
+
 	"github.com/BurntSushi/toml"
 	app "github.com/domac/lolita/lolid"
 	"github.com/domac/lolita/version"
 	"github.com/judwhite/go-svc/svc"
 	"github.com/mreiferson/go-options"
-	"log"
-	"os"
-	"path/filepath"
-	"syscall"
 )
 
 var (
@@ -20,6 +21,7 @@ var (
 	config      = flagSet.String("config", "", "path to config file")
 	verbose     = flagSet.Bool("verbose", false, "enable verbose logging")                                      //配置文件
 	httpAddress = flagSet.String("http-address", "0.0.0.0:6060", "<addr>:<port> to listen on for HTTP clients") //http定义地址
+	openTasks   = flagSet.Bool("open-tasks", false, "if opened, lolid will execute tasks soon")
 )
 
 //程序封装
@@ -55,6 +57,7 @@ func (p *program) Start() error {
 	opts := app.NewOptions()
 	options.Resolve(opts, flagSet, cfg)
 
+	//后台进程创建
 	daemon := app.New(opts)
 	daemon.Main()
 	p.lolid = daemon

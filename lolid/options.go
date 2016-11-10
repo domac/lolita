@@ -9,6 +9,7 @@ import (
 type Options struct {
 	Verbose     bool   `flag:"verbose"`
 	HTTPAddress string `flag:"http-address"`
+	OpenTasks   bool   `flag:"open-tasks"`
 	Logger      Logger
 }
 

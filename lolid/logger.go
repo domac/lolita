@@ -1,6 +1,6 @@
 package lolid
 
-//日志器
+//日志器接口
 type Logger interface {
 	Output(maxdepth int, s string) error
 }
