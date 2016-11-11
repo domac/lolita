@@ -17,6 +17,16 @@ import (
 	"time"
 )
 
+//基于原生net/http封装的client
+//支持特性：
+//1. 链式API
+//2. 直接文件上传 "@file": "/tmp/guangzhou.pdf",
+//3. 超时控制
+//4. http proxy
+//5. Cookie
+//6. GZIP
+//7. redirect 策略
+
 const (
 	VERSION   = "1.0"
 	USERAGENT = "httpclient v" + VERSION

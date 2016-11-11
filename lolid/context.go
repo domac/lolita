@@ -1,5 +1,5 @@
 package lolid
 
-type Context struct {
+type context struct {
 	lolid *Lolid
 }

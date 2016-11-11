@@ -1,28 +1,34 @@
 package lolid
 
 import (
+	"errors"
 	"fmt"
+	"github.com/domac/lolita/util"
+	"github.com/domac/lolita/version"
 	"net"
 	"os"
 	"sync"
-
-	"github.com/domac/lolita/util"
-	"github.com/domac/lolita/version"
 )
 
 type Lolid struct {
 	sync.RWMutex
-	opts         *Options
+	opts    *Options
+	rawConf map[string]interface{}
+
 	tcpListener  net.Listener
 	httpListener net.Listener
-	exitChan     chan int
-	waitGroup    util.WaitGroupWrapper
+	instanceMap  map[string]*EtcdInstance
+
+	waitGroup util.WaitGroupWrapper
+	outchan   chan []byte //数据输出通道
+	exitChan  chan int
 }
 
 func New(opts *Options) *Lolid {
 	l := &Lolid{
 		opts:     opts,
 		exitChan: make(chan int),
+		outchan:  make(chan []byte, 2000),
 	}
 	l.logf(version.String("LOLID"))
 	return l
@@ -35,9 +41,27 @@ func (l *Lolid) logf(f string, args ...interface{}) {
 	l.opts.Logger.Output(2, fmt.Sprintf(f, args...))
 }
 
+func (l *Lolid) GetConfigs() (map[string]interface{}, error) {
+	conf := l.rawConf
+	if conf == nil {
+		return nil, errors.New("config not exists")
+	}
+	return conf, nil
+}
+
+func (l *Lolid) SetConfigs(conf map[string]interface{}) {
+	l.rawConf = conf
+}
+
+func (l *Lolid) RealHTTPAddr() *net.TCPAddr {
+	l.RLock()
+	defer l.RUnlock()
+	return l.httpListener.Addr().(*net.TCPAddr)
+}
+
 //主程序入口
 func (l *Lolid) Main() {
-	ctx := &Context{l}
+	ctx := &context{l}
 	httpListener, err := net.Listen("tcp", l.opts.HTTPAddress)
 	if err != nil {
 		l.logf("FATAL: listen (%s) failed - %s", l.opts.HTTPAddress, err)
@@ -51,9 +75,12 @@ func (l *Lolid) Main() {
 	l.waitGroup.Wrap(func() {
 		Serve(httpListener, httpServer, "HTTP", l.opts.Logger)
 	})
-	//开启执行任务
+
+	//开启执行调度任务(如果不开启,本程序只可提供基本HTTP api功能)
 	if l.opts.OpenTasks {
-		l.waitGroup.Wrap(func() { l.lookupTasks() })
+		l.waitGroup.Wrap(func() { l.lookupOnputTasks() })
+		l.waitGroup.Wrap(func() { l.lookupEtcd() })
+		l.waitGroup.Wrap(func() { l.lookupInputTasks() })
 	}
 
 }
@@ -63,6 +90,11 @@ func (l *Lolid) Exit() {
 	if l.httpListener != nil {
 		l.httpListener.Close()
 	}
+
+	if l.tcpListener != nil {
+		l.tcpListener.Close()
+	}
+	close(l.outchan)
 	close(l.exitChan)
 	l.waitGroup.Wait()
 }

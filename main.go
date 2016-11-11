@@ -60,6 +60,7 @@ func (p *program) Start() error {
 
 	//后台进程创建
 	daemon := app.New(opts)
+	daemon.SetConfigs(cfg)
 	daemon.Main()
 	p.lolid = daemon
 	return nil

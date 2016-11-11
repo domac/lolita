@@ -8,12 +8,12 @@ import (
 )
 
 type httpServer struct {
-	ctx    *Context
+	ctx    *context
 	router http.Handler
 }
 
 //HTTP 服务
-func newHTTPServer(ctx *Context) *httpServer {
+func newHTTPServer(ctx *context) *httpServer {
 
 	log := Log(ctx.lolid.opts.Logger)
 
