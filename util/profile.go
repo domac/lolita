@@ -20,7 +20,7 @@ func init() {
 	pid = os.Getpid()
 }
 
-// ProcessInput parse input command string
+//处理输入
 func ProcessInput(input string, w io.Writer) {
 	switch input {
 	case "g":
@@ -44,7 +44,7 @@ func ProcessInput(input string, w io.Writer) {
 	}
 }
 
-// MemProf record memory profile in pprof
+//内存性能文件
 func MemProf(w io.Writer) {
 	filename := "mem-" + strconv.Itoa(pid) + ".memprof"
 	if f, err := os.Create(filename); err != nil {
@@ -60,7 +60,6 @@ func MemProf(w io.Writer) {
 	}
 }
 
-// GetCPUProfile start cpu profile monitor
 func GetCPUProfile(w io.Writer) {
 	sec := 30
 	filename := "cpu-" + strconv.Itoa(pid) + ".pprof"
@@ -78,7 +77,7 @@ func GetCPUProfile(w io.Writer) {
 	fmt.Fprintf(w, "Now you can use this to check it: go tool pprof %s %s\n", fl, filename)
 }
 
-// PrintGCSummary print gc information to io.Writer
+//输出GC摘要
 func PrintGCSummary(w io.Writer) {
 	memStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memStats)
@@ -127,7 +126,6 @@ func avg(items []time.Duration) time.Duration {
 	return time.Duration(int64(sum) / int64(len(items)))
 }
 
-// format bytes number friendly
 func toH(bytes uint64) string {
 	switch {
 	case bytes < 1024:
@@ -141,7 +139,6 @@ func toH(bytes uint64) string {
 	}
 }
 
-// short string format
 func toS(d time.Duration) string {
 
 	u := uint64(d)
