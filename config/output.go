@@ -2,8 +2,23 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"github.com/domac/lolita/output/stdout"
 )
+
+type Output struct {
+	Opts OutPutConfig
+}
+
+func NewOutput() *Output {
+	outputs, err := GetOutputs()
+	if err != nil {
+		return nil
+	}
+	return &Output{
+		Opts: outputs,
+	}
+}
 
 var configRaw map[string]interface{}
 
@@ -33,6 +48,7 @@ func Init() {
 
 //获取输出配置
 func GetOutputs() (OutPutConfig, error) {
+	fmt.Println("get output config...")
 	if configRaw == nil {
 		return nil, errors.New("no config")
 	}
@@ -40,21 +56,10 @@ func GetOutputs() (OutPutConfig, error) {
 	if configOutputs == nil {
 		return nil, errors.New("no outputs config")
 	}
-	return configOutputs, nil
-}
 
-//执行输出
-func RunOutputs(packets [][]byte) error {
-	//获取输出器
-	outputs, err := GetOutputs()
-	if err != nil {
-		panic(err)
-	}
+	outputs := make(OutPutConfig, 0, len(configOutputs))
 
-	if packets == nil {
-		return errors.New("data null")
-	}
-	for _, outMap := range outputs {
+	for _, outMap := range configOutputs {
 		handlerName := outMap["type"].(string)
 		if _, ok := mapOutputHandler[handlerName]; !ok {
 			continue
@@ -63,8 +68,27 @@ func RunOutputs(packets [][]byte) error {
 		if getHandler == nil {
 			continue
 		}
+		outputs = append(outputs, outMap)
+	}
+
+	return outputs, nil
+}
+
+//执行输出
+func (o *Output) Runs(packets [][]byte) error {
+	//获取输出器
+	outputs := o.Opts
+	if len(outputs) == 0 {
+		panic("no output available, please check the config file")
+	}
+	if packets == nil {
+		return errors.New("data null")
+	}
+	for _, outMap := range outputs {
+		handlerName := outMap["type"].(string)
+		getHandler := mapOutputHandler[handlerName]
 		handler := getHandler(outMap)
-		handler.Event(packets)
+		go handler.Event(packets)
 	}
 	return nil
 }

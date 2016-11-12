@@ -36,7 +36,7 @@ func (l *Lolid) runInputs() error {
 	//模拟采集
 	for i := 0; i < 1000; i++ {
 		go func(a int) {
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			l.outchan <- []byte(fmt.Sprintf("%d", a))
 		}(i)
 	}
@@ -47,6 +47,9 @@ func (l *Lolid) runInputs() error {
 func (l *Lolid) lookupOnputTasks() {
 
 	config.Init()
+
+	output := config.NewOutput()
+
 	maxWirteBulkSize := l.opts.MaxWriteBulkSize
 
 	//批量bulk
@@ -74,7 +77,7 @@ func (l *Lolid) lookupOnputTasks() {
 
 			if len(packets) > 0 {
 				//执行输出
-				config.RunOutputs(packets)
+				output.Runs(packets)
 				packets = packets[:0]
 			}
 		case <-l.exitChan:

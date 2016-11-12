@@ -1,5 +1,9 @@
 package stdout
 
+import (
+	"fmt"
+)
+
 const ModuleName = "stdout"
 
 type StdoutOutputHandler struct {
@@ -14,7 +18,6 @@ func (handler *StdoutOutputHandler) Event(packets [][]byte) error {
 	for i := 0; i < len(packets); i++ {
 		temp += string(packets[i]) + ","
 	}
-	println(temp)
-	println("===============================")
+	fmt.Printf("%d >>>> : %s \n\n", len(packets), temp)
 	return nil
 }
