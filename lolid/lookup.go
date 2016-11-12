@@ -9,10 +9,11 @@ import (
 )
 
 //默认任务间隔
-const DEFAULT_TASK_INTERVAL = 3000 * time.Millisecond
+const DEFAULT_TASK_INTERVAL = 1000 * time.Millisecond
 
-//主动发现Etcd的配置信息
+//TODO: 主动发现Etcd的配置信息
 func (l *Lolid) lookupEtcd() {
+
 }
 
 //主动发现需要去做的服务
@@ -34,7 +35,7 @@ exit:
 func (l *Lolid) runInputs() error {
 
 	//模拟采集
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		go func(a int) {
 			time.Sleep(300 * time.Millisecond)
 			l.outchan <- []byte(fmt.Sprintf("%d", a))
@@ -45,8 +46,10 @@ func (l *Lolid) runInputs() error {
 
 //扫描发送通道,并对采集的结果进行发送
 func (l *Lolid) lookupOnputTasks() {
+
+	config.Init()
 	//获取输出器
-	outputs, err := l.getOutputs()
+	outputs, err := config.GetOutputs()
 	if err != nil {
 		panic(err)
 	}
@@ -90,22 +93,22 @@ exit:
 	l.logf("LOOKUP: closing")
 }
 
-func (l *Lolid) runOutputs(outputs []config.TypeOutputConfig, packets [][]byte) error {
+//执行输出
+func (l *Lolid) runOutputs(outputs config.OutPutConfig, packets [][]byte) error {
 	if packets == nil {
 		return errors.New("data null")
 	}
-	fmt.Printf("==== %d\n", len(packets))
+	for _, outMap := range outputs {
+		handlerName := outMap["type"].(string)
+		if _, ok := config.MapOutputHandler[handlerName]; !ok {
+			continue
+		}
+		fn := config.MapOutputHandler[handlerName]
+		if fn == nil {
+			continue
+		}
+		handler := fn(outMap)
+		handler.Event(packets)
+	}
 	return nil
-}
-
-func (l *Lolid) getOutputs() (outputs []config.TypeOutputConfig, err error) {
-	rawConfig, err := l.GetConfigs()
-	if err != nil {
-		return nil, errors.New("no config")
-	}
-	configOutputs := rawConfig["outputs"].([]map[string]interface{})
-	if configOutputs == nil {
-		return nil, errors.New("no outputs config")
-	}
-	return nil, nil
 }

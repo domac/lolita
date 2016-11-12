@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/BurntSushi/toml"
+	appconfig "github.com/domac/lolita/config"
 	app "github.com/domac/lolita/lolid"
 	"github.com/domac/lolita/version"
 	"github.com/judwhite/go-svc/svc"
@@ -61,9 +62,10 @@ func (p *program) Start() error {
 	opts := app.NewOptions()
 	options.Resolve(opts, flagSet, cfg)
 
+	appconfig.SetConfigInfo(cfg)
+
 	//后台进程创建
 	daemon := app.New(opts)
-	daemon.SetConfigs(cfg)
 	daemon.Main()
 	p.lolid = daemon
 	return nil

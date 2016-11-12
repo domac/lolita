@@ -1,7 +1,6 @@
 package lolid
 
 import (
-	"errors"
 	"fmt"
 	"github.com/domac/lolita/util"
 	"github.com/domac/lolita/version"
@@ -12,8 +11,7 @@ import (
 
 type Lolid struct {
 	sync.RWMutex
-	opts    *Options
-	rawConf map[string]interface{}
+	opts *Options
 
 	tcpListener  net.Listener
 	httpListener net.Listener
@@ -39,18 +37,6 @@ func (l *Lolid) logf(f string, args ...interface{}) {
 		return
 	}
 	l.opts.Logger.Output(2, fmt.Sprintf(f, args...))
-}
-
-func (l *Lolid) GetConfigs() (map[string]interface{}, error) {
-	conf := l.rawConf
-	if conf == nil {
-		return nil, errors.New("config not exists")
-	}
-	return conf, nil
-}
-
-func (l *Lolid) SetConfigs(conf map[string]interface{}) {
-	l.rawConf = conf
 }
 
 func (l *Lolid) RealHTTPAddr() *net.TCPAddr {
