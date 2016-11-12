@@ -28,7 +28,7 @@ func New(opts *Options) *Lolid {
 	l := &Lolid{
 		opts:     opts,
 		exitChan: make(chan int),
-		outchan:  make(chan []byte, 2000),
+		outchan:  make(chan []byte, opts.MaxWriteChannelSize),
 	}
 	l.logf(version.String("LOLID"))
 	return l
@@ -78,6 +78,7 @@ func (l *Lolid) Main() {
 
 	//开启执行调度任务(如果不开启,本程序只可提供基本HTTP api功能)
 	if l.opts.OpenTasks {
+		l.logf("open tasks")
 		l.waitGroup.Wrap(func() { l.lookupOnputTasks() })
 		l.waitGroup.Wrap(func() { l.lookupEtcd() })
 		l.waitGroup.Wrap(func() { l.lookupInputTasks() })

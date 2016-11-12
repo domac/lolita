@@ -23,6 +23,9 @@ var (
 	httpAddress = flagSet.String("http-address", "0.0.0.0:13360", "<addr>:<port> to listen on for HTTP clients") //http定义地址
 	tcpAddress  = flagSet.String("tcp-address", "0.0.0.0:13361", "<addr>:<port> to listen on for HTTP clients")  //tcp定义地址
 	openTasks   = flagSet.Bool("open-tasks", false, "if opened, lolid will execute tasks soon")
+
+	MaxWriteChannelSize = flagSet.Int("max-write-channel-size", 4096, "max writeChannel size")
+	MaxWriteBulkSize    = flagSet.Int("max-write-bulk-size", 4096, "max writeBulk size")
 )
 
 //程序封装
