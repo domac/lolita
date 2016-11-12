@@ -20,8 +20,9 @@ format:
 	gofmt -w .
 
 build:
-	mkdir -p releases
+	mkdir -p builds
+	cp config/cfg_sample.conf builds/$(TARGETNAME).conf
 	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -v -o builds/$(TARGETNAME) $(BUILDFILE)
-
+    
 clean:
 	go clean -i
