@@ -1,7 +1,6 @@
 package lolid
 
 import (
-	"errors"
 	"fmt"
 	"github.com/domac/lolita/config"
 	"math"
@@ -48,12 +47,6 @@ func (l *Lolid) runInputs() error {
 func (l *Lolid) lookupOnputTasks() {
 
 	config.Init()
-	//获取输出器
-	outputs, err := config.GetOutputs()
-	if err != nil {
-		panic(err)
-	}
-
 	maxWirteBulkSize := l.opts.MaxWriteBulkSize
 
 	//批量bulk
@@ -80,7 +73,8 @@ func (l *Lolid) lookupOnputTasks() {
 			}
 
 			if len(packets) > 0 {
-				l.runOutputs(outputs, packets)
+				//执行输出
+				config.RunOutputs(packets)
 				packets = packets[:0]
 			}
 		case <-l.exitChan:
@@ -91,24 +85,4 @@ func (l *Lolid) lookupOnputTasks() {
 	}
 exit:
 	l.logf("LOOKUP: closing")
-}
-
-//执行输出
-func (l *Lolid) runOutputs(outputs config.OutPutConfig, packets [][]byte) error {
-	if packets == nil {
-		return errors.New("data null")
-	}
-	for _, outMap := range outputs {
-		handlerName := outMap["type"].(string)
-		if _, ok := config.MapOutputHandler[handlerName]; !ok {
-			continue
-		}
-		fn := config.MapOutputHandler[handlerName]
-		if fn == nil {
-			continue
-		}
-		handler := fn(outMap)
-		handler.Event(packets)
-	}
-	return nil
 }

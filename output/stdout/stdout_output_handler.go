@@ -10,6 +10,11 @@ func InitHandler(opt map[string]interface{}) *StdoutOutputHandler {
 }
 
 func (handler *StdoutOutputHandler) Event(packets [][]byte) error {
-	println("----------stdout")
+	temp := ""
+	for i := 0; i < len(packets); i++ {
+		temp += string(packets[i]) + ","
+	}
+	println(temp)
+	println("===============================")
 	return nil
 }

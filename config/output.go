@@ -13,11 +13,11 @@ type OutputHandler interface {
 	Event(packets [][]byte) error
 }
 
-var MapOutputHandler = make(map[string]func(opt map[string]interface{}) OutputHandler)
+var mapOutputHandler = make(map[string]func(opt map[string]interface{}) OutputHandler)
 
 //输出器配置
 func RegistOutputHandler(name string, handler func(opt map[string]interface{}) OutputHandler) {
-	MapOutputHandler[name] = handler
+	mapOutputHandler[name] = handler
 }
 
 func SetConfigInfo(config map[string]interface{}) {
@@ -41,4 +41,30 @@ func GetOutputs() (OutPutConfig, error) {
 		return nil, errors.New("no outputs config")
 	}
 	return configOutputs, nil
+}
+
+//执行输出
+func RunOutputs(packets [][]byte) error {
+	//获取输出器
+	outputs, err := GetOutputs()
+	if err != nil {
+		panic(err)
+	}
+
+	if packets == nil {
+		return errors.New("data null")
+	}
+	for _, outMap := range outputs {
+		handlerName := outMap["type"].(string)
+		if _, ok := mapOutputHandler[handlerName]; !ok {
+			continue
+		}
+		getHandler := mapOutputHandler[handlerName]
+		if getHandler == nil {
+			continue
+		}
+		handler := getHandler(outMap)
+		handler.Event(packets)
+	}
+	return nil
 }
