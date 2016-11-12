@@ -34,9 +34,8 @@ exit:
 func (l *Lolid) runInputs() error {
 
 	//模拟采集
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 500; i++ {
 		go func(a int) {
-			time.Sleep(200 * time.Millisecond)
 			l.outchan <- []byte(fmt.Sprintf("%d", a))
 		}(i)
 	}

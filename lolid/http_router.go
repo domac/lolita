@@ -3,6 +3,8 @@ package lolid
 import (
 	"net/http"
 
+	"bytes"
+	"github.com/domac/lolita/util"
 	"github.com/domac/lolita/version"
 	"github.com/julienschmidt/httprouter"
 )
@@ -30,6 +32,7 @@ func newHTTPServer(ctx *context) *httpServer {
 
 	//在这里注册路由服务
 	router.Handle("GET", "/version", Decorate(s.versionHandler, log, Default))
+	router.Handle("GET", "/debug", Decorate(s.pprofHandler, log, PlainText))
 	router.Handle("GET", "/ping", Decorate(s.pingHandler, log, PlainText))
 	router.Handle("POST", "/pong", Decorate(s.pongHandler, log, Default))
 	return s
@@ -60,4 +63,16 @@ func (s *httpServer) pongHandler(w http.ResponseWriter, req *http.Request, ps ht
 	s.ctx.lolid.opts.Logger.Output(2, param)
 	res := NewResult(RESULT_CODE_FAIL, true, "PONG!", param)
 	return res, nil
+}
+
+//profile
+func (s *httpServer) pprofHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) (interface{}, error) {
+	paramReq, err := NewReqParams(req)
+	if err != nil {
+		return nil, err
+	}
+	cmd, _ := paramReq.Get("cmd")
+	buf := bytes.Buffer{}
+	util.ProcessInput(cmd, &buf)
+	return buf.String(), nil
 }

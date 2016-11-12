@@ -59,7 +59,7 @@ func (l *Lolid) Main() {
 	httpServer := newHTTPServer(ctx)
 	//开启对外提供的http服务
 	l.waitGroup.Wrap(func() {
-		Serve(httpListener, httpServer, "HTTP", l.opts.Logger)
+		Serve(l.httpListener, httpServer, "HTTP", l.opts.Logger)
 	})
 
 	//开启执行调度任务(如果不开启,本程序只可提供基本HTTP api功能)
