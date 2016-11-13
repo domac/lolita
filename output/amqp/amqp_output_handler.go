@@ -1,6 +1,8 @@
 package amqp
 
 import (
+	"errors"
+	"fmt"
 	"github.com/bitly/go-hostpool"
 	"github.com/streadway/amqp"
 )
@@ -55,10 +57,46 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 		handler.Retries = int(retries)
 	}
 	handler.isCheck = true
+
+	if err := handler.initAmqpClients(); err != nil {
+		fmt.Println(err.Error())
+		handler.isCheck = false
+	}
+
 	return handler
 }
 
 func (self *AmqpOutputHandler) initAmqpClients() error {
+	var hosts []string
+	for _, url := range self.URLs {
+		if conn, err := self.getConnection(url); err == nil {
+			if ch, err := conn.Channel(); err == nil {
+				err := ch.ExchangeDeclare(
+					self.Exchange,
+					self.ExchangeType,
+					false,
+					true,
+					false,
+					false,
+					nil,
+				)
+				if err != nil {
+					return err
+				}
+				self.amqpClients[url] = amqpClient{
+					client:    ch,
+					reconnect: make(chan hostpool.HostPoolResponse, 1),
+				}
+				//重连处理
+				go self.reconnect(url)
+				hosts = append(hosts, url)
+			}
+		}
+
+	}
+	if len(hosts) == 0 {
+		return errors.New("FAIL TO CONNECT AMQP SERVERS")
+	}
 
 	return nil
 }
@@ -70,6 +108,11 @@ func (self *AmqpOutputHandler) Event(packets [][]byte) error {
 func (self *AmqpOutputHandler) getConnection(url string) (*amqp.Connection, error) {
 	conn, err := amqp.Dial(url)
 	return conn, err
+}
+
+//重连机制
+func (self *AmqpOutputHandler) reconnect(url string) {
+
 }
 
 func (self *AmqpOutputHandler) Check() bool {

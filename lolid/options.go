@@ -15,6 +15,8 @@ type Options struct {
 	MaxWriteChannelSize int `flag:"max-write-channel-size"`
 	MaxWriteBulkSize    int `flag:"max-write-bulk-size"`
 
+	SendType int `flag:"send-type"`
+
 	Logger Logger
 }
 
@@ -24,6 +26,7 @@ func NewOptions() *Options {
 		TCPAddress:          "0.0.0.0:13361",
 		MaxWriteChannelSize: 4096,
 		MaxWriteBulkSize:    200,
+		SendType:            0,
 		Logger:              log.New(os.Stderr, "[LOLID] ", log.Ldate|log.Ltime|log.Lmicroseconds),
 	}
 }

@@ -104,3 +104,9 @@ func (l *Lolid) loopOnputTasks() {
 exit:
 	l.logf("LOOKUP: closing")
 }
+
+//消息集中处理
+func (l *Lolid) messagesDump() {
+	pipeline := NewPipeline(l)
+	pipeline.Dump()
+}

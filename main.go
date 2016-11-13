@@ -27,6 +27,8 @@ var (
 
 	MaxWriteChannelSize = flagSet.Int("max-write-channel-size", 4096, "max writeChannel size")
 	MaxWriteBulkSize    = flagSet.Int("max-write-bulk-size", 4096, "max writeBulk size")
+
+	sendType = flagSet.Int("send-type", 0, "message send type: 0-output 1-dump")
 )
 
 //程序封装

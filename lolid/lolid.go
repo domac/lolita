@@ -81,7 +81,12 @@ func (l *Lolid) Main() {
 
 	//开启执行调度任务(如果不开启,本程序只可提供基本HTTP api功能)
 	if l.opts.OpenTasks {
-		l.waitGroup.Wrap(func() { l.loopOnputTasks() })
+
+		if l.opts.SendType == 0 {
+			l.waitGroup.Wrap(func() { l.loopOnputTasks() })
+		} else {
+			l.waitGroup.Wrap(func() { l.messagesDump() })
+		}
 
 		// messageCollectStartedCha用于同步输出与输入的流程
 		// 这样可以保证输出器的初始化工作完成后,才进行数据采集的工作
