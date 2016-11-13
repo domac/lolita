@@ -5,19 +5,23 @@ import (
 	"fmt"
 	"github.com/bitly/go-hostpool"
 	"github.com/streadway/amqp"
+	"log"
+	"time"
 )
 
 const ModuleName = "amqp"
 
 type AmqpOutputHandler struct {
-	URLs           []string
-	Exchange       string
-	ExchangeType   string
-	Retries        int
-	ReconnectDelay int
-	hostPool       hostpool.HostPool
-	amqpClients    map[string]amqpClient
-	isCheck        bool
+	URLs               []string
+	Exchange           string
+	ExchangeType       string
+	ExchangeDurable    bool
+	ExchangeAutoDelete bool
+	Retries            int
+	ReconnectDelay     int
+	hostPool           hostpool.HostPool
+	amqpClients        map[string]amqpClient
+	isCheck            bool
 }
 
 type amqpClient struct {
@@ -57,6 +61,8 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 		handler.Retries = int(retries)
 	}
 	handler.isCheck = true
+	handler.ExchangeDurable = false
+	handler.ExchangeAutoDelete = true
 
 	if err := handler.InitAmqpClients(); err != nil {
 		fmt.Println(err.Error())
@@ -68,10 +74,12 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 
 func NewAmpqHandler(urls []string, exchange string, exchange_type string) *AmqpOutputHandler {
 	handler := &AmqpOutputHandler{
-		URLs:         urls,
-		Exchange:     exchange,
-		ExchangeType: exchange_type,
-		amqpClients:  map[string]amqpClient{},
+		URLs:               urls,
+		Exchange:           exchange,
+		ExchangeType:       exchange_type,
+		ExchangeDurable:    false,
+		ExchangeAutoDelete: true,
+		amqpClients:        map[string]amqpClient{},
 	}
 	return handler
 }
@@ -84,8 +92,8 @@ func (self *AmqpOutputHandler) InitAmqpClients() error {
 				err := ch.ExchangeDeclare(
 					self.Exchange,
 					self.ExchangeType,
-					false,
-					true,
+					self.ExchangeDurable,
+					self.ExchangeAutoDelete,
 					false,
 					false,
 					nil,
@@ -128,7 +136,36 @@ func (self *AmqpOutputHandler) getConnection(url string) (*amqp.Connection, erro
 
 //重连机制
 func (self *AmqpOutputHandler) reconnect(url string) {
+	for {
+		select {
+		case poolResponse := <-self.amqpClients[url].reconnect:
+			for {
+				time.Sleep(time.Duration(self.ReconnectDelay) * time.Second)
 
+				if conn, err := self.getConnection(poolResponse.Host()); err == nil {
+					if ch, err := conn.Channel(); err == nil {
+						if err := ch.ExchangeDeclare(
+							self.Exchange,
+							self.ExchangeType,
+							self.ExchangeDurable,
+							self.ExchangeAutoDelete,
+							false,
+							false,
+							nil,
+						); err == nil {
+							self.amqpClients[poolResponse.Host()] = amqpClient{
+								client:    ch,
+								reconnect: make(chan hostpool.HostPoolResponse, 1),
+							}
+							poolResponse.Mark(nil)
+							break
+						}
+					}
+				}
+				log.Println("Failed to reconnect to ", url, ". Waiting ", self.ReconnectDelay, " seconds...")
+			}
+		}
+	}
 }
 
 func (self *AmqpOutputHandler) Check() bool {
