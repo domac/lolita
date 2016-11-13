@@ -44,6 +44,7 @@ type OutPutConfig []map[string]interface{}
 
 type OutputHandler interface {
 	Event(packets [][]byte) error
+	Check() bool
 }
 
 var mapOutputHandler = make(map[string]func(opt map[string]interface{}) OutputHandler)
@@ -105,8 +106,13 @@ func (o *Output) Pop(packets [][]byte) error {
 		handlerName := outMap["type"].(string)
 		getHandler := mapOutputHandler[handlerName]
 		handler := getHandler(outMap)
-		//异步触发输出工作
-		go handler.Event(packets)
+
+		//验证通过后,才允许执行
+		if handler.Check() {
+			//异步触发输出工作
+			go handler.Event(packets)
+		}
+
 	}
 	return nil
 }

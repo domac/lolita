@@ -21,3 +21,7 @@ func (handler *StdoutOutputHandler) Event(packets [][]byte) error {
 	fmt.Printf("%d >>>> : %s \n\n", len(packets), temp)
 	return nil
 }
+
+func (handler *StdoutOutputHandler) Check() bool {
+	return true
+}
