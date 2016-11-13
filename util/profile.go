@@ -23,13 +23,13 @@ func init() {
 //处理输入
 func ProcessInput(input string, w io.Writer) {
 	switch input {
-	case "g":
+	case "go":
 		p := pprof.Lookup("goroutine")
 		p.WriteTo(w, 2)
 	case "heap":
 		p := pprof.Lookup("heap")
 		p.WriteTo(w, 2)
-	case "threadcreate":
+	case "thread":
 		p := pprof.Lookup("threadcreate")
 		p.WriteTo(w, 2)
 	case "block":

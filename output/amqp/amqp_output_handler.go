@@ -112,6 +112,12 @@ func (self *AmqpOutputHandler) InitAmqpClients() error {
 }
 
 func (self *AmqpOutputHandler) Event(packets [][]byte) error {
+	fmt.Printf("amqp is sending %d envent \n", len(packets))
+	return nil
+}
+
+func (self *AmqpOutputHandler) Write(packets [][]byte) error {
+	fmt.Printf("amqp is writing %d msg \n", len(packets))
 	return nil
 }
 

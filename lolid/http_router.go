@@ -66,7 +66,7 @@ func (s *httpServer) pongHandler(w http.ResponseWriter, req *http.Request, ps ht
 	return res, nil
 }
 
-//profile
+//输出性能信息
 func (s *httpServer) pprofHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) (interface{}, error) {
 	paramReq, err := NewReqParams(req)
 	if err != nil {

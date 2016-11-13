@@ -60,7 +60,7 @@ func (p *Pipeline) Dump() {
 
 			if len(packets) > 0 {
 				//执行输出
-				fmt.Printf("%d \n", len(packets))
+				store_handler.Write(packets)
 				//回收包裹空间
 				packets = packets[:0]
 			}
