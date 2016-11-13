@@ -2,6 +2,7 @@ package lolid
 
 import (
 	"fmt"
+	"github.com/domac/lolita/output/amqp"
 	"math"
 	"time"
 )
@@ -26,6 +27,13 @@ func (p *Pipeline) Dump() {
 	//批量bulk
 	packets := make([][]byte, 0, maxWirteBulkSize)
 
+	store_handler := amqp.NewAmpqHandler([]string{"http://localhost"}, "test", "testtype")
+
+	err := store_handler.InitAmqpClients()
+	if err != nil {
+		fmt.Println("cache store server is not working")
+		panic(err)
+	}
 	//关闭messageCollectStartedChan, 宣告输出器的初始化工作已经完成
 	//其它工作组件可以往下走
 	close(p.ctx.messageCollectStartedChan)

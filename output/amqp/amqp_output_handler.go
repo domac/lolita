@@ -58,7 +58,7 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 	}
 	handler.isCheck = true
 
-	if err := handler.initAmqpClients(); err != nil {
+	if err := handler.InitAmqpClients(); err != nil {
 		fmt.Println(err.Error())
 		handler.isCheck = false
 	}
@@ -66,7 +66,17 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 	return handler
 }
 
-func (self *AmqpOutputHandler) initAmqpClients() error {
+func NewAmpqHandler(urls []string, exchange string, exchange_type string) *AmqpOutputHandler {
+	handler := &AmqpOutputHandler{
+		URLs:         urls,
+		Exchange:     exchange,
+		ExchangeType: exchange_type,
+		amqpClients:  map[string]amqpClient{},
+	}
+	return handler
+}
+
+func (self *AmqpOutputHandler) InitAmqpClients() error {
 	var hosts []string
 	for _, url := range self.URLs {
 		if conn, err := self.getConnection(url); err == nil {
