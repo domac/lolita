@@ -2,6 +2,7 @@ package lolid
 
 import (
 	"fmt"
+	"github.com/domac/lolita/clients/etcd"
 	"github.com/domac/lolita/config"
 	"math"
 	"time"
@@ -12,7 +13,37 @@ const DEFAULT_TASK_INTERVAL = 1000 * time.Millisecond
 
 //TODO: 主动发现Etcd的配置信息
 func (l *Lolid) lookupEtcd() {
+	etcd.Init([]string{"http://192.168.139.134:2179"})
+	etcdClient := etcd.GetClient()
+	nodesValue, err := etcdClient.Get("/lolita/localhost")
+	if err != nil {
+		l.logf("counld not get value from etcd")
+	}
+	l.logf("etcd job nodes : %s \n", nodesValue)
 
+	worker, err := etcdClient.CreateWatcher("/lolita/localhost")
+	if err != nil {
+		l.logf("etcd watch fail ....")
+	}
+	ctx := etcd.GetContext()
+	//目录监听
+	go func() {
+		for {
+			resp, err := worker.Next(ctx)
+			if err != nil {
+				continue
+			}
+			switch resp.Action {
+			case "set", "update":
+				fmt.Println("=======> set/update")
+				break
+			case "expire", "delete":
+				fmt.Println("=======> expire/delete")
+				break
+			default:
+			}
+		}
+	}()
 }
 
 //主动发现需要去做的服务

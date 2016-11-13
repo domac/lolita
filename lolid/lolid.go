@@ -21,6 +21,8 @@ type Lolid struct {
 	messageCollectStartedChan chan int
 	outchan                   chan []byte //数据输出通道
 	exitChan                  chan int
+
+	isExit bool
 }
 
 func New(opts *Options) *Lolid {
@@ -111,5 +113,6 @@ func (l *Lolid) Exit() {
 	}
 	close(l.outchan)
 	close(l.exitChan)
+	l.isExit = true
 	l.waitGroup.Wait()
 }
