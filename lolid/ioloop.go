@@ -16,7 +16,7 @@ func (l *Lolid) lookupEtcd() {
 }
 
 //主动发现需要去做的服务
-func (l *Lolid) lookupInputTasks() {
+func (l *Lolid) loopInputTasks() {
 	//调度定时器
 	ticker := time.Tick(DEFAULT_TASK_INTERVAL)
 	for {
@@ -54,7 +54,7 @@ func (l *Lolid) Put(data []byte) error {
 }
 
 //扫描发送通道,并对采集的结果进行发送
-func (l *Lolid) lookupOnputTasks() {
+func (l *Lolid) loopOnputTasks() {
 
 	config.Init()
 
