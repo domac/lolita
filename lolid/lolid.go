@@ -17,16 +17,18 @@ type Lolid struct {
 	httpListener net.Listener
 	instanceMap  map[string]*EtcdInstance
 
-	waitGroup util.WaitGroupWrapper
-	outchan   chan []byte //数据输出通道
-	exitChan  chan int
+	waitGroup                 util.WaitGroupWrapper
+	messageCollectStartedChan chan int
+	outchan                   chan []byte //数据输出通道
+	exitChan                  chan int
 }
 
 func New(opts *Options) *Lolid {
 	l := &Lolid{
-		opts:     opts,
-		exitChan: make(chan int),
-		outchan:  make(chan []byte, opts.MaxWriteChannelSize),
+		opts:                      opts,
+		exitChan:                  make(chan int),
+		outchan:                   make(chan []byte, opts.MaxWriteChannelSize),
+		messageCollectStartedChan: make(chan int),
 	}
 	l.logf(version.String("LOLID"))
 	return l
@@ -43,6 +45,21 @@ func (l *Lolid) RealHTTPAddr() *net.TCPAddr {
 	l.RLock()
 	defer l.RUnlock()
 	return l.httpListener.Addr().(*net.TCPAddr)
+}
+
+func (l *Lolid) Empty() error {
+	l.Lock()
+	defer l.Unlock()
+
+	for {
+		select {
+		case <-l.outchan:
+		default:
+			goto finish
+		}
+	}
+finish:
+	return nil
 }
 
 //主程序入口
@@ -64,8 +81,14 @@ func (l *Lolid) Main() {
 
 	//开启执行调度任务(如果不开启,本程序只可提供基本HTTP api功能)
 	if l.opts.OpenTasks {
-		l.logf("open tasks")
 		l.waitGroup.Wrap(func() { l.lookupOnputTasks() })
+
+		// messageCollectStartedCha用于同步输出与输入的流程
+		// 这样可以保证输出器的初始化工作完成后,才进行数据采集的工作
+		// 可以避免因为输出器因为某些原因无法工作,导致数据不断采集而无消费
+		// 这样容易导致内存消息堆积,引起无法控制的情况
+		<-l.messageCollectStartedChan
+		l.logf("start doing jobs")
 		l.waitGroup.Wrap(func() { l.lookupEtcd() })
 		l.waitGroup.Wrap(func() { l.lookupInputTasks() })
 	}

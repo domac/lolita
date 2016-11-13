@@ -34,6 +34,7 @@ func newHTTPServer(ctx *context) *httpServer {
 	router.Handle("GET", "/version", Decorate(s.versionHandler, log, Default))
 	router.Handle("GET", "/debug", Decorate(s.pprofHandler, log, PlainText))
 	router.Handle("GET", "/ping", Decorate(s.pingHandler, log, PlainText))
+	router.Handle("GET", "/empty", Decorate(s.emptyHandler, log, PlainText))
 	router.Handle("POST", "/pong", Decorate(s.pongHandler, log, Default))
 	return s
 }
@@ -75,4 +76,10 @@ func (s *httpServer) pprofHandler(w http.ResponseWriter, req *http.Request, ps h
 	buf := bytes.Buffer{}
 	util.ProcessInput(cmd, &buf)
 	return buf.String(), nil
+}
+
+//通道数据清空
+func (s *httpServer) emptyHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) (interface{}, error) {
+	s.ctx.lolid.Empty()
+	return "empty is finish", nil
 }

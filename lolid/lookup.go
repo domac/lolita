@@ -17,10 +17,12 @@ func (l *Lolid) lookupEtcd() {
 
 //主动发现需要去做的服务
 func (l *Lolid) lookupInputTasks() {
+	//调度定时器
 	ticker := time.Tick(DEFAULT_TASK_INTERVAL)
 	for {
 		select {
 		case <-ticker:
+			//执行采集输入
 			l.runInputs()
 		case <-l.exitChan:
 			goto exit
@@ -36,9 +38,17 @@ func (l *Lolid) runInputs() error {
 	//模拟采集
 	for i := 0; i < 100; i++ {
 		go func(a int) {
-			time.Sleep(200 * time.Millisecond)
-			l.outchan <- []byte(fmt.Sprintf("%d", a))
+			l.Put([]byte(fmt.Sprintf("%d", a)))
 		}(i)
+	}
+	return nil
+}
+
+func (l *Lolid) Put(data []byte) error {
+	select {
+	case l.outchan <- data:
+	default:
+		data = data[:0]
 	}
 	return nil
 }
@@ -54,6 +64,10 @@ func (l *Lolid) lookupOnputTasks() {
 
 	//批量bulk
 	packets := make([][]byte, 0, maxWirteBulkSize)
+
+	//关闭messageCollectStartedChan, 宣告输出器的初始化工作已经完成
+	//其它工作组件可以往下走
+	close(l.messageCollectStartedChan)
 
 	for {
 		select {
@@ -77,7 +91,8 @@ func (l *Lolid) lookupOnputTasks() {
 
 			if len(packets) > 0 {
 				//执行输出
-				output.Runs(packets)
+				output.Pop(packets)
+				//回收包裹空间
 				packets = packets[:0]
 			}
 		case <-l.exitChan:
