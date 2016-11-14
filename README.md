@@ -1,4 +1,6 @@
-# lolita
+## lolita
+
+lolita是一个高并发调度功能框架
 
 ## 如何使用
 
