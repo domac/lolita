@@ -31,6 +31,9 @@ var (
 	sendType     = flagSet.Int("send-type", 0, "message send type: 0-output 1-dump")
 	etcdEndpoint = flagSet.String("etcd-endpoint", "0.0.0.0:2379", "ectd service discovery address")
 	serviceName  = flagSet.String("service-name", "localhost", "the service name which ectd can find it")
+
+	rmq_address = flagSet.String("rmq-address", "", "rabbitmq address")
+	rmq_key     = flagSet.String("rmq-key", "", "rabbitmq queue key")
 )
 
 //程序封装

@@ -19,6 +19,9 @@ type Options struct {
 	EtcdEndpoint string `flag:"etcd-endpoint"`
 	ServiceName  string `flag:"service-name"`
 
+	RmqAddress  string `flag:"rmq-address"`
+	RmqQueueKey string `flag:"rmq-key"`
+
 	Logger Logger
 }
 

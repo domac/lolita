@@ -27,7 +27,10 @@ func (p *Pipeline) Dump() {
 	//批量bulk
 	packets := make([][]byte, 0, maxWirteBulkSize)
 
-	store_handler := amqp.NewAmpqHandler([]string{"http://localhost"}, "test", "testtype")
+	rmq_address := p.ctx.opts.RmqAddress
+	rmq_key := p.ctx.opts.RmqQueueKey
+
+	store_handler := amqp.NewAmpqHandler([]string{rmq_address}, rmq_key, "", "")
 
 	err := store_handler.InitAmqpClients()
 	if err != nil {
@@ -60,7 +63,7 @@ func (p *Pipeline) Dump() {
 
 			if len(packets) > 0 {
 				//执行输出
-				store_handler.Write(packets)
+				store_handler.WriteToMQ(packets)
 				//回收包裹空间
 				packets = packets[:0]
 			}

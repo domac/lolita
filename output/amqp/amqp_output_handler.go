@@ -1,6 +1,7 @@
 package amqp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/bitly/go-hostpool"
@@ -13,6 +14,7 @@ const ModuleName = "amqp"
 
 type AmqpOutputHandler struct {
 	URLs               []string
+	Key                string
 	Exchange           string
 	ExchangeType       string
 	ExchangeDurable    bool
@@ -56,6 +58,10 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 		handler.ExchangeType = opt["exchange_type"].(string)
 	}
 
+	if _, ok := opt["rmq_key"]; ok {
+		handler.Key = opt["rmq_key"].(string)
+	}
+
 	if _, ok := opt["retries"]; ok {
 		retries := opt["retries"].(int64)
 		handler.Retries = int(retries)
@@ -72,9 +78,10 @@ func InitHandler(opt map[string]interface{}) *AmqpOutputHandler {
 	return handler
 }
 
-func NewAmpqHandler(urls []string, exchange string, exchange_type string) *AmqpOutputHandler {
+func NewAmpqHandler(urls []string, key string, exchange string, exchange_type string) *AmqpOutputHandler {
 	handler := &AmqpOutputHandler{
 		URLs:               urls,
+		Key:                key,
 		Exchange:           exchange,
 		ExchangeType:       exchange_type,
 		ExchangeDurable:    false,
@@ -89,15 +96,8 @@ func (self *AmqpOutputHandler) InitAmqpClients() error {
 	for _, url := range self.URLs {
 		if conn, err := self.getConnection(url); err == nil {
 			if ch, err := conn.Channel(); err == nil {
-				err := ch.ExchangeDeclare(
-					self.Exchange,
-					self.ExchangeType,
-					self.ExchangeDurable,
-					self.ExchangeAutoDelete,
-					false,
-					false,
-					nil,
-				)
+				ch.QueueDeclare(self.Key, true, false, false, false, nil)
+
 				if err != nil {
 					return err
 				}
@@ -115,7 +115,7 @@ func (self *AmqpOutputHandler) InitAmqpClients() error {
 	if len(hosts) == 0 {
 		return errors.New("FAIL TO CONNECT AMQP SERVERS")
 	}
-
+	self.hostPool = hostpool.New(hosts)
 	return nil
 }
 
@@ -126,11 +126,37 @@ func (self *AmqpOutputHandler) Event(packets [][]byte) error {
 
 func (self *AmqpOutputHandler) Write(packets [][]byte) error {
 	fmt.Printf("amqp is writing %d msg \n", len(packets))
-	fmt.Printf("amqp is writing %s msg \n", packets)
+	pbuff := bytes.Join(packets, []byte{})
+	fmt.Printf("amqp is writing %s \n", pbuff)
+	pbuff = pbuff[:0]
+	return nil
+}
+
+func (self *AmqpOutputHandler) WriteToMQ(packets [][]byte) error {
+	pbuff := bytes.Join(packets, []byte{})
+	fmt.Printf("amqp is writing %d msg \n", len(pbuff))
+	for i := 0; i <= self.Retries; i++ {
+		hp := self.hostPool.Get()
+		if err := self.amqpClients[hp.Host()].client.Publish(
+			"",
+			self.Key,
+			false,
+			false,
+			amqp.Publishing{
+				Body: pbuff,
+			},
+		); err != nil {
+			hp.Mark(err)
+			self.amqpClients[hp.Host()].reconnect <- hp
+		} else {
+			break
+		}
+	}
 	return nil
 }
 
 func (self *AmqpOutputHandler) getConnection(url string) (*amqp.Connection, error) {
+	println("get connect from rmq")
 	conn, err := amqp.Dial(url)
 	return conn, err
 }
@@ -142,18 +168,10 @@ func (self *AmqpOutputHandler) reconnect(url string) {
 		case poolResponse := <-self.amqpClients[url].reconnect:
 			for {
 				time.Sleep(time.Duration(self.ReconnectDelay) * time.Second)
-
 				if conn, err := self.getConnection(poolResponse.Host()); err == nil {
 					if ch, err := conn.Channel(); err == nil {
-						if err := ch.ExchangeDeclare(
-							self.Exchange,
-							self.ExchangeType,
-							self.ExchangeDurable,
-							self.ExchangeAutoDelete,
-							false,
-							false,
-							nil,
-						); err == nil {
+
+						if err == nil {
 							self.amqpClients[poolResponse.Host()] = amqpClient{
 								client:    ch,
 								reconnect: make(chan hostpool.HostPoolResponse, 1),
