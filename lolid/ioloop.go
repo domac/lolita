@@ -1,8 +1,10 @@
 package lolid
 
 import (
+	"errors"
 	"fmt"
 	"github.com/domac/lolita/clients/etcd"
+	httpclient "github.com/domac/lolita/clients/http"
 	"github.com/domac/lolita/config"
 	"math"
 	"time"
@@ -13,20 +15,50 @@ const DEFAULT_TASK_INTERVAL = 1000 * time.Millisecond
 
 //TODO: 主动发现Etcd的配置信息
 func (l *Lolid) lookupEtcd() {
-	etcd.Init([]string{"http://192.168.139.134:2179"})
-	etcdClient := etcd.GetClient()
-	nodesValue, err := etcdClient.Get("/lolita/localhost")
-	if err != nil {
-		l.logf("counld not get value from etcd")
-	}
-	l.logf("etcd job nodes : %s \n", nodesValue)
 
-	worker, err := etcdClient.CreateWatcher("/lolita/localhost")
+	etcdEndpointAddress := l.opts.EtcdEndpoint
+	etcd.Init([]string{etcdEndpointAddress})
+
+	serviceName := l.opts.ServiceName
+	domainkey := fmt.Sprintf("/agent/domain/%s", serviceName)
+	proxykey := fmt.Sprintf("/agent/proxy/%s", serviceName)
+	etcdClient := etcd.GetClient()
+
+	//判断etcd是否已经存在目录文件
+	if !etcdClient.IsFileExist(domainkey) {
+		//若没有,初始化一个
+		etcdClient.Set(domainkey, "")
+	}
+
+	//获取当前域值
+	domainValue, err := etcdClient.Get(domainkey)
+
+	if err != nil {
+		l.logf("counld not get domain value from etcd %s \n:", etcdEndpointAddress)
+	}
+
+	//判断etcd是否已经存在目录文件
+	if !etcdClient.IsFileExist(proxykey) {
+		//若没有,初始化一个
+		etcdClient.Set(proxykey, "")
+	}
+
+	//获取当前proxy值
+	proxyValue, err := etcdClient.Get(proxykey)
+
+	if err != nil {
+		l.logf("counld not get proxy value from etcd %s \n:", etcdEndpointAddress)
+	}
+	l.RefleshInstances(domainValue, proxyValue)
+
+	//只监听proxy的目录
+	worker, err := etcdClient.CreateWatcher(proxykey)
 	if err != nil {
 		l.logf("etcd watch fail ....")
+		return
 	}
 	ctx := etcd.GetContext()
-	//目录监听
+	//proxy目录监听
 	go func() {
 		for {
 			resp, err := worker.Next(ctx)
@@ -34,11 +66,11 @@ func (l *Lolid) lookupEtcd() {
 				continue
 			}
 			switch resp.Action {
-			case "set", "update":
-				fmt.Println("=======> set/update")
+			case "set", "update": //新增,修改
+				l.RefleshInstances(domainValue, resp.Node.Value)
 				break
-			case "expire", "delete":
-				fmt.Println("=======> expire/delete")
+			case "expire", "delete": //过期,删除
+				l.RefleshInstances(domainValue, resp.Node.Value)
 				break
 			default:
 			}
@@ -54,7 +86,10 @@ func (l *Lolid) loopInputTasks() {
 		select {
 		case <-ticker:
 			//执行采集输入
-			l.runInputs()
+			err := l.runInputs()
+			if err != nil {
+				l.logf(err.Error())
+			}
 		case <-l.exitChan:
 			goto exit
 		}
@@ -65,14 +100,56 @@ exit:
 
 //数据并发收集
 func (l *Lolid) runInputs() error {
-
 	//模拟采集
-	for i := 0; i < 100; i++ {
-		go func(a int) {
-			l.Put([]byte(fmt.Sprintf("%d", a)))
-		}(i)
+	// for i := 0; i < 30; i++ {
+	// 	go func(a int) {
+	// 		l.Put([]byte(fmt.Sprintf("%d", a)))
+	// 	}(i)
+	// }
+	//fmt.Printf("本次处理任务信息: %v \n", l.InstanceMap)
+
+	if len(l.InstanceMap) == 0 {
+		return errors.New("Etcd Instance Map is null, Plesase check connection or ectd dir")
+	}
+
+	for k, v := range l.InstanceMap {
+		if k == "" || v == nil || len(v) == 0 {
+			continue
+		}
+		for _, p := range v {
+			if p == "" {
+				continue
+			}
+			go func(domain, proxy string) {
+				//远程获取数据
+				data := get_remote_data(domain, proxy)
+				if data != nil {
+					l.Put(data)
+				}
+
+			}(k, p)
+		}
 	}
 	return nil
+}
+
+func get_remote_data(url, proxy string) []byte {
+	demoClient := httpclient.NewHttpClient()
+	demoClient.WithOptions(httpclient.Map{
+		"opt_timeout_ms":        500,
+		"opt_connecttimeout_ms": 500,
+		"opt_proxy":             proxy,
+	})
+	resp, err := demoClient.Get(url, nil)
+	if err != nil {
+		return nil
+	}
+	data, err := resp.ReadAll()
+	resp.Body.Close()
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 func (l *Lolid) Put(data []byte) error {

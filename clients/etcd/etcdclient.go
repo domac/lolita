@@ -57,6 +57,15 @@ func (ec *Client) IsDirExist(dir string) bool {
 	return resp.Node.Dir
 }
 
+func (ec *Client) IsFileExist(file string) bool {
+	kapi := client.NewKeysAPI(ec.client)
+	_, err := kapi.Get(ctx, file, nil)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func (ec *Client) CreateDir(dir string) error {
 	kapi := client.NewKeysAPI(ec.client)
 	_, err := kapi.Set(ctx, dir, "", &client.SetOptions{Dir: true})

@@ -1,11 +1,13 @@
 package lolid
 
 import (
+	"errors"
 	"fmt"
 	"github.com/domac/lolita/util"
 	"github.com/domac/lolita/version"
 	"net"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -15,7 +17,7 @@ type Lolid struct {
 
 	tcpListener  net.Listener
 	httpListener net.Listener
-	instanceMap  map[string]*EtcdInstance
+	InstanceMap  map[string][]string
 
 	waitGroup                 util.WaitGroupWrapper
 	messageCollectStartedChan chan int
@@ -31,6 +33,7 @@ func New(opts *Options) *Lolid {
 		exitChan:                  make(chan int),
 		outchan:                   make(chan []byte, opts.MaxWriteChannelSize),
 		messageCollectStartedChan: make(chan int),
+		InstanceMap:               make(map[string][]string),
 	}
 	l.logf(version.String("LOLID"))
 	return l
@@ -47,6 +50,20 @@ func (l *Lolid) RealHTTPAddr() *net.TCPAddr {
 	l.RLock()
 	defer l.RUnlock()
 	return l.httpListener.Addr().(*net.TCPAddr)
+}
+
+func (l *Lolid) RefleshInstances(key, value string) error {
+	if key == "" {
+		return errors.New("reflesh key is null")
+	}
+	l.logf("Agent [%s] proxy info reflesh : %s \n", key, value)
+	proxys := strings.Split(value, ",")
+	refleshMap := make(map[string][]string, len(proxys))
+	refleshMap[key] = proxys
+	l.RLock()
+	l.InstanceMap = refleshMap
+	l.RUnlock()
+	return nil
 }
 
 func (l *Lolid) Empty() error {

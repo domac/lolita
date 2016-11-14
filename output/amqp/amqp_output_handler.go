@@ -126,6 +126,7 @@ func (self *AmqpOutputHandler) Event(packets [][]byte) error {
 
 func (self *AmqpOutputHandler) Write(packets [][]byte) error {
 	fmt.Printf("amqp is writing %d msg \n", len(packets))
+	fmt.Printf("amqp is writing %s msg \n", packets)
 	return nil
 }
 

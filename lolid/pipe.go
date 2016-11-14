@@ -67,7 +67,7 @@ func (p *Pipeline) Dump() {
 		case <-p.ctx.exitChan:
 			goto exit
 		default:
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 		}
 	}
 exit:

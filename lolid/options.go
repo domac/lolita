@@ -15,7 +15,9 @@ type Options struct {
 	MaxWriteChannelSize int `flag:"max-write-channel-size"`
 	MaxWriteBulkSize    int `flag:"max-write-bulk-size"`
 
-	SendType int `flag:"send-type"`
+	SendType     int    `flag:"send-type"`
+	EtcdEndpoint string `flag:"etcd-endpoint"`
+	ServiceName  string `flag:"service-name"`
 
 	Logger Logger
 }
@@ -24,6 +26,8 @@ func NewOptions() *Options {
 	return &Options{
 		HTTPAddress:         "0.0.0.0:13360",
 		TCPAddress:          "0.0.0.0:13361",
+		EtcdEndpoint:        "0.0.0.0:2379",
+		ServiceName:         "localhost",
 		MaxWriteChannelSize: 4096,
 		MaxWriteBulkSize:    200,
 		SendType:            0,
