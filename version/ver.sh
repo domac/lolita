@@ -1,0 +1,1 @@
+find ./version/binary.go  | xargs grep "const Binary =" | awk '{print $4}' | sed 's/\"//g'

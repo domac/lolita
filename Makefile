@@ -11,6 +11,10 @@ GOOS=darwin
 # GOARCH为目标主机CPU架构, 默认为amd64 
 GOARCH=amd64
 
+VER=$(shell sh ./version/ver.sh)
+
+BUILDPATH=$(TARGETNAME)-$(VER)
+
 all: format test build clean
 
 test:
@@ -20,9 +24,10 @@ format:
 	gofmt -w .
 
 build:
-	mkdir -p builds
-	cp config/cfg_sample.conf builds/$(TARGETNAME).conf
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -v -o builds/$(TARGETNAME) $(BUILDFILE)
-    
+	mkdir -p builds/$(BUILDPATH)
+	cp config/cfg_sample.conf builds/$(BUILDPATH)/$(TARGETNAME).conf
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -v -o builds/$(BUILDPATH)/$(TARGETNAME) $(BUILDFILE) 
+	tar -zcvf ./builds/$(BUILDPATH).tar.gz ./builds/$(BUILDPATH)
+
 clean:
 	go clean -i
