@@ -7,6 +7,7 @@ import (
 	"github.com/domac/lolita/util"
 	"github.com/domac/lolita/version"
 	"github.com/julienschmidt/httprouter"
+	"net/http/pprof"
 )
 
 type httpServer struct {
@@ -30,17 +31,35 @@ func newHTTPServer(ctx *context) *httpServer {
 		router: router,
 	}
 
+	//内置监控
+	router.GET("/debug/pprof/*pprof", innerPprofHandler)
+
 	//在这里注册路由服务
 	router.Handle("GET", "/version", Decorate(s.versionHandler, log, Default))
 	router.Handle("GET", "/debug", Decorate(s.pprofHandler, log, PlainText))
 	router.Handle("GET", "/ping", Decorate(s.pingHandler, log, PlainText))
 	router.Handle("GET", "/empty", Decorate(s.emptyHandler, log, PlainText))
 	router.Handle("POST", "/pong", Decorate(s.pongHandler, log, Default))
+
 	return s
 }
 
 func (s *httpServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	s.router.ServeHTTP(w, req)
+}
+
+//调用内置的pprof
+func innerPprofHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	switch p.ByName("pprof") {
+	case "/cmdline":
+		pprof.Cmdline(w, r)
+	case "/profile":
+		pprof.Profile(w, r)
+	case "/symbol":
+		pprof.Symbol(w, r)
+	default:
+		pprof.Index(w, r)
+	}
 }
 
 func (s *httpServer) versionHandler(w http.ResponseWriter, req *http.Request, ps httprouter.Params) (interface{}, error) {
