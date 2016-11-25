@@ -17,7 +17,8 @@ type Options struct {
 
 	SendType     int    `flag:"send-type"`
 	EtcdEndpoint string `flag:"etcd-endpoint"`
-	ServiceName  string `flag:"service-name"`
+	AgentId      string `flag:"agent-id"`
+	AgentGroup   string `flag:"agent-group"`
 
 	RmqAddress  string `flag:"rmq-address"`
 	RmqQueueKey string `flag:"rmq-key"`
@@ -30,7 +31,8 @@ func NewOptions() *Options {
 		HTTPAddress:         "0.0.0.0:13360",
 		TCPAddress:          "0.0.0.0:13361",
 		EtcdEndpoint:        "0.0.0.0:2379",
-		ServiceName:         "localhost",
+		AgentId:             "localhost",
+		AgentGroup:          "devops",
 		MaxWriteChannelSize: 4096,
 		MaxWriteBulkSize:    200,
 		SendType:            0,

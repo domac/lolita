@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/domac/lolita/util"
 	"github.com/domac/lolita/version"
+	"github.com/pquerna/ffjson/ffjson"
 	"net"
 	"os"
 	"strings"
@@ -25,6 +26,7 @@ type Lolid struct {
 	exitChan                  chan int
 
 	isExit bool
+	paused bool
 }
 
 func New(opts *Options) *Lolid {
@@ -34,6 +36,7 @@ func New(opts *Options) *Lolid {
 		outchan:                   make(chan []byte, opts.MaxWriteChannelSize),
 		messageCollectStartedChan: make(chan int),
 		InstanceMap:               make(map[string][]string),
+		paused:                    false,
 	}
 	l.logf(version.String("LOLID"))
 	return l
@@ -52,14 +55,36 @@ func (l *Lolid) RealHTTPAddr() *net.TCPAddr {
 	return l.httpListener.Addr().(*net.TCPAddr)
 }
 
-func (l *Lolid) RefleshInstances(key, value string) error {
-	if key == "" {
-		return errors.New("reflesh key is null")
+//清空作业信息
+func (l *Lolid) ClearLocalJobs() error {
+	l.RLock()
+	l.InstanceMap = make(map[string][]string, 0)
+	l.RUnlock()
+	return nil
+}
+
+//刷新当前工作信息
+func (l *Lolid) RefleshJobs(jobJson string) error {
+	if jobJson == "" {
+		l.logf("reflesh job is null")
+		l.ClearLocalJobs()
+		return errors.New("reflesh job is null")
 	}
-	l.logf("Agent [%s] proxy info reflesh : %s \n", key, value)
-	proxys := strings.Split(value, ",")
-	refleshMap := make(map[string][]string, len(proxys))
-	refleshMap[key] = proxys
+	l.logf("Agent Jobs [%s] info reflesh !!! \n", jobJson)
+	jsonMap := make(map[string]string)
+
+	//校验工作信息的值格式是否正确
+	err := ffjson.Unmarshal([]byte(jobJson), &jsonMap)
+	if err != nil {
+		l.logf("reflesh jobs map error")
+		l.ClearLocalJobs()
+		return err
+	}
+	refleshMap := make(map[string][]string, len(jsonMap))
+	for key, value := range jsonMap {
+		proxys := strings.Split(value, ",")
+		refleshMap[key] = proxys
+	}
 	l.RLock()
 	l.InstanceMap = refleshMap
 	l.RUnlock()

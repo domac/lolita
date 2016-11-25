@@ -24,7 +24,7 @@ const (
 	Watch_Action_Delete string = "delete"
 )
 
-func Init(endpoints []string) {
+func Init(endpoints []string) error {
 	cfg := client.Config{
 		Endpoints:               endpoints,
 		Transport:               client.DefaultTransport,
@@ -35,8 +35,11 @@ func Init(endpoints []string) {
 	cli.client, err = client.New(cfg)
 	if err != nil {
 		log.Fatalf("connect to etcd err: %v", err)
+		return err
 	}
+	log.Printf("etcd connect success : %v", endpoints)
 	ctx = context.Background()
+	return nil
 }
 
 func GetClient() *Client {
@@ -66,9 +69,15 @@ func (ec *Client) IsFileExist(file string) bool {
 	return true
 }
 
-func (ec *Client) CreateDir(dir string) error {
+func (ec *Client) MakeDir(dir string) error {
 	kapi := client.NewKeysAPI(ec.client)
 	_, err := kapi.Set(ctx, dir, "", &client.SetOptions{Dir: true})
+	return err
+}
+
+func (ec *Client) CreateDir(dir string) error {
+	kapi := client.NewKeysAPI(ec.client)
+	_, err := kapi.Create(ctx, dir, "")
 	return err
 }
 

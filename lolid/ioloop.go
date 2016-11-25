@@ -6,59 +6,147 @@ import (
 	"github.com/domac/lolita/clients/etcd"
 	httpclient "github.com/domac/lolita/clients/http"
 	"github.com/domac/lolita/config"
+	"github.com/domac/lolita/util"
 	"math"
+	"os"
+	"strings"
 	"time"
 )
 
 //默认任务间隔
 const DEFAULT_TASK_INTERVAL = 1000 * time.Millisecond
+const HRARTBEAT_INTERVAL = 1000 * time.Millisecond
+const LUA_READ_TIMEOUT = 500 * time.Millisecond
 
 //TODO: 主动发现Etcd的配置信息
 func (l *Lolid) lookupEtcd() {
 
 	etcdEndpointAddress := l.opts.EtcdEndpoint
-	etcd.Init([]string{etcdEndpointAddress})
 
-	serviceName := l.opts.ServiceName
-	domainkey := fmt.Sprintf("/agent/domain/%s", serviceName)
-	proxykey := fmt.Sprintf("/agent/proxy/%s", serviceName)
-	etcdClient := etcd.GetClient()
+	endpoints := strings.Split(etcdEndpointAddress, ",")
 
-	//判断etcd是否已经存在目录文件
-	if !etcdClient.IsFileExist(domainkey) {
-		//若没有,初始化一个
-		etcdClient.Set(domainkey, "")
-	}
-
-	//获取当前域值
-	domainValue, err := etcdClient.Get(domainkey)
-
+	//etcd环境初始化
+	err := etcd.Init(endpoints)
 	if err != nil {
-		l.logf("counld not get domain value from etcd %s \n:", etcdEndpointAddress)
-	}
-
-	//判断etcd是否已经存在目录文件
-	if !etcdClient.IsFileExist(proxykey) {
-		//若没有,初始化一个
-		etcdClient.Set(proxykey, "")
-	}
-
-	//获取当前proxy值
-	proxyValue, err := etcdClient.Get(proxykey)
-
-	if err != nil {
-		l.logf("counld not get proxy value from etcd %s \n:", etcdEndpointAddress)
-	}
-	l.RefleshInstances(domainValue, proxyValue)
-
-	//只监听proxy的目录
-	worker, err := etcdClient.CreateWatcher(proxykey)
-	if err != nil {
-		l.logf("etcd watch fail ....")
+		l.logf("counld not connections etcd %v \n:", endpoints)
+		l.Exit()
+		os.Exit(2)
 		return
 	}
+
+	//获取etcd客户端实例
+	etcdClient := etcd.GetClient()
+
+	//etcd 上下文
 	ctx := etcd.GetContext()
-	//proxy目录监听
+
+	//agent识别信息
+	agentId := l.opts.AgentId
+	agentGroup := l.opts.AgentGroup
+
+	//作业目录
+	jobsFile := fmt.Sprintf("/apus/agent-groups/%s/jobs", agentGroup)
+	if !etcdClient.IsFileExist(jobsFile) {
+		//若没有,初始化一个
+		etcdClient.Set(jobsFile, "")
+	}
+
+	//Leader目录
+	leaderFile := fmt.Sprintf("/apus/agent-groups/%s/leader", agentGroup)
+	if !etcdClient.IsFileExist(leaderFile) {
+		//如果所在组的Leader文件不存在抢占成为leader
+		etcdClient.Set(leaderFile, agentId)
+	} else {
+		currentLeader, _ := etcdClient.Get(leaderFile)
+		if currentLeader != agentId {
+			l.paused = true
+		}
+	}
+
+	//成员目录
+	memberAgentDir := fmt.Sprintf("/apus/agent-groups/%s/members/%s", agentGroup, agentId)
+	if !etcdClient.IsDirExist(memberAgentDir) {
+		//若没有,创建一个目录
+		etcdClient.MakeDir(memberAgentDir)
+	}
+
+	//心跳目录
+	heartbeatFile := fmt.Sprintf("/apus/agent-groups/%s/members/%s/heartbeat", agentGroup, agentId)
+	if !etcdClient.IsFileExist(heartbeatFile) {
+		//若没有,初始化一个(这个过程真正完成服务注册会向etcd发送一个Create事件表示服务需要被发现)
+		//HA模块会监听Create事件,用来确认有新的agent进来了
+		etcdClient.CreateDir(heartbeatFile)
+	}
+
+	jobInfo, err := etcdClient.Get(jobsFile)
+	if err != nil {
+		l.logf("counld not get jobs from etcd %s:%s \n:", etcdEndpointAddress, jobsFile)
+	}
+
+	//初始化当前作业
+	l.RefleshJobs(jobInfo)
+
+	localip := ""
+
+	//获取本地IP
+	localIps, err := util.IntranetIP()
+	if err == nil {
+		localip = localIps[0]
+	}
+
+	//心跳间隔
+	hbInterval := time.Tick(HRARTBEAT_INTERVAL)
+
+	//异步发送心跳到etcd
+	go func() {
+		for {
+			select {
+			case <-hbInterval:
+				etcdClient.Set(heartbeatFile, TouchHeart(localip))
+			case <-l.exitChan:
+				break
+			}
+		}
+	}()
+
+	//监听leader的配置
+	leaderWorker, err := etcdClient.CreateWatcher(leaderFile)
+
+	if err != nil {
+		l.logf("etcd leader watch fail ...")
+		return
+	}
+
+	go func() {
+		for {
+			resp, err := leaderWorker.Next(ctx)
+			if err != nil {
+				continue
+			}
+			switch resp.Action {
+			case "set", "update": //新增,修改
+				currentLeader := resp.Node.Value
+				if currentLeader != agentId {
+					l.logf("leader is changed !")
+					l.paused = true
+				} else {
+					l.paused = false
+				}
+			case "expire", "delete": //过期,删除
+				l.paused = false
+			default:
+			}
+		}
+	}()
+
+	//监听jobs的目录
+	worker, err := etcdClient.CreateWatcher(jobsFile)
+	if err != nil {
+		l.logf("etcd job watch fail ....")
+		return
+	}
+
+	//jobs目录监听
 	go func() {
 		for {
 			resp, err := worker.Next(ctx)
@@ -67,11 +155,37 @@ func (l *Lolid) lookupEtcd() {
 			}
 			switch resp.Action {
 			case "set", "update": //新增,修改
-				l.RefleshInstances(domainValue, resp.Node.Value)
+				l.RefleshJobs(resp.Node.Value)
 				break
 			case "expire", "delete": //过期,删除
-				l.RefleshInstances(domainValue, resp.Node.Value)
+				l.RefleshJobs(resp.Node.Value)
 				break
+			default:
+			}
+		}
+	}()
+
+	//监听自身的注册目录
+	agentworker, err := etcdClient.CreateWatcher(memberAgentDir)
+	if err != nil {
+		l.logf("etcd self watch fail ....")
+		return
+	}
+	go func() {
+		for {
+			resp, err := agentworker.Next(ctx)
+			if err != nil {
+				continue
+			}
+			switch resp.Action {
+			case "set", "update", "expire": //新增,修改
+				break
+			case "delete": //过期,删除
+				//若删除,agent就退出运行吧
+				l.logf("etcd send away signal.... \n")
+				l.RefleshJobs("")
+				l.Exit()
+				os.Exit(2)
 			default:
 			}
 		}

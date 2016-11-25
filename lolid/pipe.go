@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/domac/lolita/output/amqp"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -30,7 +31,8 @@ func (p *Pipeline) Dump() {
 	rmq_address := p.ctx.opts.RmqAddress
 	rmq_key := p.ctx.opts.RmqQueueKey
 
-	store_handler := amqp.NewAmpqHandler([]string{rmq_address}, rmq_key, "", "")
+	rmq_address_endpoints := strings.Split(rmq_address, ",")
+	store_handler := amqp.NewAmpqHandler(rmq_address_endpoints, rmq_key, "", "")
 
 	err := store_handler.InitAmqpClients()
 	if err != nil {
